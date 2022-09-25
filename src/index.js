@@ -1,24 +1,19 @@
-import './css/styles.css';
-import { fetchPictures } from './fetchPictures.js';
-import Notiflix from 'notiflix';
-import { renderGallery } from './renderGallery.js';
-
+import { Notify } from 'notiflix';
 import SimpleLightbox from 'simplelightbox';
 import 'simplelightbox/dist/simple-lightbox.min.css';
 
-refs = {
-  form: document.querySelector('#search-form'),
-  gallery: document.querySelector('.gallery'),
-  loadMoreBtn: document.querySelector('.load-more-btn'),
-};
-
-const endSearch = document.querySelector('.end-search');
+import './css/styles.css';
+import { fetchPictures } from './fetchPictures.js';
+import { renderGallery } from './renderGallery.js';
+import { refs } from './refs';
 
 refs.loadMoreBtn.classList.add('is-hidden');
-// endSearch.classList.add('is-hidden');
+refs.theEnd.classList.add('is-hidden');
+
 let galleryImg = new SimpleLightbox('.gallery a', {
-  /* options */ enableKeyboard: true,
+  enableKeyboard: true,
 });
+
 refs.gallery.innerHTML = '';
 let name = '';
 let perPage = 40;
@@ -28,40 +23,39 @@ let totalPages = 0;
 refs.form.addEventListener('submit', onPictureInput);
 refs.loadMoreBtn.addEventListener('click', onLoadMoreBtnClick);
 
-function onPictureInput(evt) {
-  evt.preventDefault();
-  // loadMoreBtn.classList.remove('is-hidden');
-  endSearch.classList.add('is-hidden');
+function onPictureInput(e) {
+  refs.theEnd.classList.add('is-hidden');
   refs.loadMoreBtn.classList.add('is-hidden');
-  window.scrollTo({ top: 0 });
+  e.preventDefault();
+
   page = 1;
-  name = evt.currentTarget.elements.searchQuery.value.trim();
+  name = e.currentTarget.elements.searchQuery.value.trim();
   refs.gallery.innerHTML = '';
 
   if (name === '') {
-    return alertEmptyName();
+    return Notify.failure(
+      `The object name is not valid. The name cannot be empty.`
+    );
   }
 
   fetchPictures(name, page, perPage)
     .then(data => {
-      endSearch.classList.add('is-hidden');
+      refs.theEnd.classList.add('is-hidden');
       refs.gallery.innerHTML = '';
 
       if (data.totalHits === 0) {
-        alertNotFoundImages();
+        return Notify.failure(
+          `Sorry, there are no images matching your search query. Please try again.`
+        );
       } else {
         refs.gallery.insertAdjacentHTML('beforeend', renderGallery(data.hits));
 
-        alertImagesFound(data);
-        // simpleLightBox = new SimpleLightbox('.gallery a', {
-        //   captions: true,
-        //   captionsData: 'alt',
-        //   captionDelay: 250,
-        // })
+        Notify.success(`Hooray! We found ${data.totalHits} images.`);
+
         galleryImg.refresh();
 
         if (data.totalHits > perPage) {
-          loadMoreBtn.classList.remove('is-hidden');
+          refs.loadMoreBtn.classList.remove('is-hidden');
         }
       }
     })
@@ -70,9 +64,8 @@ function onPictureInput(evt) {
 
 function onLoadMoreBtnClick() {
   page += 1;
-  // galleryImg.destroy();
 
-  fetchPicturs(name, page, perPage).then(data => {
+  fetchPictures(name, page, perPage).then(data => {
     refs.gallery.insertAdjacentHTML('beforeend', renderGallery(data.hits));
     galleryImg.refresh();
 
@@ -87,31 +80,14 @@ function onLoadMoreBtnClick() {
 
     totalPages = Math.ceil(data.totalHits / perPage);
     if (page >= totalPages) {
-      // endSearch.classList.remove('is-hidden');
-      loadMoreBtn.classList.add('is-hidden');
-      alertEndOfSearch();
+      refs.loadMoreBtn.classList.add('is-hidden');
+      return Notify.info(
+        `We're sorry, but you've reached the end of search results.`,
+        {
+          position: 'center-bottom',
+          width: '420px',
+        }
+      );
     }
   });
-}
-function alertEmptyName() {
-  Notiflix.Notify.failure(
-    `The object name is not valid. The name cannot be empty.`
-  );
-}
-function alertNotFoundImages() {
-  Notiflix.Notify.failure(
-    `Sorry, there are no images matching your search query. Please try again.`
-  );
-}
-function alertImagesFound(data) {
-  Notiflix.Notify.success(`Hooray! We found ${data.totalHits} images.`);
-}
-function alertEndOfSearch() {
-  Notiflix.Notify.info(
-    `We're sorry, but you've reached the end of search results.`,
-    {
-      position: 'center-bottom',
-      width: '420px',
-    }
-  );
 }
