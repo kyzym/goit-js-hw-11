@@ -15,6 +15,7 @@ function onFormSubmit(e) {
   searchPictures();
 }
 
+let totalPages = 0;
 let query = '';
 let searchQuery = '';
 let page = 0;
