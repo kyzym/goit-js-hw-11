@@ -1,41 +1,30 @@
 import './css/styles.css';
 import throttle from 'lodash.throttle';
-import axios from 'axios';
 
 import renderGalleryMarkup from './renderMarkup';
 import * as message from './showMessage';
+import { fetchPictures } from './fetchPictures';
 import { lightbox } from './lightbox';
 
 import { formEl, galleryElContainer, inputEL, observerEl } from './refs';
 
 formEl.addEventListener('submit', onFormSubmit);
 
+let searchQuery = '';
+let page = 0;
+const perPage = 40;
+
 function onFormSubmit(e) {
   e.preventDefault();
   searchPictures();
 }
 
-let totalPages = 0;
-let query = '';
-let searchQuery = '';
-let page = 0;
-const perPage = 40;
-const BASE_URL = 'https://pixabay.com/api/';
-const KEY = '30138376-6df292770cccddd83200d4f36';
-
-async function fetchPictures() {
-  const url = `${BASE_URL}?key=${KEY}&q=${searchQuery}&page=${page}&per_page=${perPage}&image_type=photo&orientation=horizontal&safesearch=true`;
-  const { data } = await axios.get(url);
-
-  return data;
-}
-const incrementPage = () => (page += 1);
-
-const resetPage = () => (page = 1);
-
-const clearMarkup = () => (galleryElContainer.innerHTML = '');
-
 async function searchPictures() {
+  let query = '';
+
+  const resetPage = () => (page = 1);
+  const clearMarkup = () => (galleryElContainer.innerHTML = '');
+
   if (!inputEL.value.trim()) {
     message.onEmpty();
     return;
@@ -48,7 +37,7 @@ async function searchPictures() {
   clearMarkup();
 
   try {
-    const res = await fetchPictures(query);
+    const res = await fetchPictures(searchQuery, page, perPage);
     const { totalHits, hits } = res;
 
     if (!hits.length) {
@@ -72,11 +61,14 @@ function appendImagesMarkup(data) {
   lightbox.refresh();
 }
 
-const makeScroll = entries => {
+export const makeScroll = entries => {
+  const incrementPage = () => (page += 1);
+
   entries.forEach(entry => {
     if (entry.isIntersecting && entry.boundingClientRect.bottom > 300) {
       incrementPage();
-      fetchPictures().then(images => {
+
+      fetchPictures(searchQuery, page, perPage).then(images => {
         appendImagesMarkup(images);
         checkData(images);
         lightbox.refresh();
@@ -86,13 +78,14 @@ const makeScroll = entries => {
 };
 
 const intersectionObserver = new IntersectionObserver(
-  throttle(makeScroll, 4000),
+  throttle(makeScroll, 500),
   {
     rootMargin: '150px',
   }
 );
 
 function checkData(data) {
+  let totalPages = 0;
   totalPages = Math.ceil(data.total / perPage);
   if (page >= totalPages) {
     return message.onEndOfResults();
