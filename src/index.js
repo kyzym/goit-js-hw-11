@@ -1,17 +1,17 @@
 import './css/styles.css';
 import throttle from 'lodash.throttle';
-
-import renderGalleryMarkup from './renderMarkup';
 import * as message from './showMessage';
 import { fetchPictures } from './fetchPictures';
 import { lightbox } from './lightbox';
-
+import appendImagesMarkup from './appendMarkup';
 import { formEl, galleryElContainer, inputEL, observerEl } from './refs';
 
 formEl.addEventListener('submit', onFormSubmit);
 
+let query = '';
 let searchQuery = '';
 let page = 0;
+let totalPages = 0;
 const perPage = 40;
 
 function onFormSubmit(e) {
@@ -20,8 +20,6 @@ function onFormSubmit(e) {
 }
 
 async function searchPictures() {
-  let query = '';
-
   const resetPage = () => (page = 1);
   const clearMarkup = () => (galleryElContainer.innerHTML = '');
 
@@ -52,16 +50,7 @@ async function searchPictures() {
   }
 }
 
-function appendImagesMarkup(data) {
-  galleryElContainer.insertAdjacentHTML(
-    'beforeend',
-    renderGalleryMarkup(data.hits)
-  );
-
-  lightbox.refresh();
-}
-
-export const makeScroll = entries => {
+function makeScroll(entries) {
   const incrementPage = () => (page += 1);
 
   entries.forEach(entry => {
@@ -70,12 +59,21 @@ export const makeScroll = entries => {
 
       fetchPictures(searchQuery, page, perPage).then(images => {
         appendImagesMarkup(images);
-        checkData(images);
+        checkData(images, perPage, page);
+
         lightbox.refresh();
       });
     }
   });
-};
+}
+
+function checkData(data, perPage, page) {
+  totalPages = Math.ceil(data.total / perPage);
+
+  if (page >= totalPages) {
+    return message.onEndOfResults();
+  }
+}
 
 const intersectionObserver = new IntersectionObserver(
   throttle(makeScroll, 500),
@@ -83,11 +81,3 @@ const intersectionObserver = new IntersectionObserver(
     rootMargin: '150px',
   }
 );
-
-function checkData(data) {
-  let totalPages = 0;
-  totalPages = Math.ceil(data.total / perPage);
-  if (page >= totalPages) {
-    return message.onEndOfResults();
-  }
-}
